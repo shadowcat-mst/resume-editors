@@ -38,21 +38,15 @@ sub get_vim_jobs {
   for my $line (split /\n/, $jobs_output) {
     # Skip if not a stopped vim job
     next unless $line =~ /\[(\d+)\].+Stopped.+vim/;
-    
     my $job_id = $1;
-    my $filename = '';
     
     # Extract filename - look for last argument after 'vim'
-    if ($line =~ /vim(?:\s+-r!)?(?:\s+\S+)*\s+([^\s&]+)/) {
-      $filename = $1;
-    }
+    next unless my ($filename) = $line =~ /vim(?:\s+-r!)?(?:\s+\S+)*\s+([^\s&]+)/;
     
-    # If we can, get the vim process working directory
-    my $pid;
-    if ($line =~ /\[(\d+)\]\+?\s+Stopped\s+(\d+)/) {
-      $pid = $2;
-    }
+    # Get the pid if available
+    my ($pid) = $line =~ /\[\d+\]\+?\s+Stopped\s+(\d+)/;
     
+    # Get vim working directory (from /proc if possible, otherwise current dir)
     my $vim_cwd = ($pid && -e "/proc/$pid/cwd") ? readlink("/proc/$pid/cwd") : cwd();
     
     push @vim_jobs, {
