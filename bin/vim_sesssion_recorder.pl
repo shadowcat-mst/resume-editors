@@ -75,11 +75,11 @@ sub get_vim_jobs {
 
 # Record everything to file in a way that's easy to source later
 sub record_session {
-  my ($session_name) = @_;
+  my ($session_name, $jobs_output) = @_;
   
   my $session_file = _mk_session_dir() . "/$session_name";
   my $shell_cwd = get_shell_cwd();
-  my @vim_jobs = get_vim_jobs();
+  my @vim_jobs = get_vim_jobs($jobs_output);
   
   # Open file and start writing
   open my $fh, '>', $session_file;
@@ -96,17 +96,11 @@ sub record_session {
     print $fh "# Vim jobs to restore\n";
     
     for my $job (@vim_jobs) {
-      # Only try to cd if the vim CWD is different from shell CWD
+      # Start vim in stopped state - using cd inside the subshell if needed
       if ($job->{cwd} ne $shell_cwd) {
-        print $fh "pushd ", shell_quote($job->{cwd}), " >/dev/null\n";
-      }
-      
-      # Start vim in stopped state
-      print $fh "(vim -r! ", shell_quote($job->{filename}), " &) && kill -SIGTSTP \$!\n";
-      
-      # Return to original dir if needed
-      if ($job->{cwd} ne $shell_cwd) {
-        print $fh "popd >/dev/null\n";
+        print $fh "(cd ", shell_quote($job->{cwd}), " && vim -r! ", shell_quote($job->{filename}), " &) && kill -SIGTSTP \$!\n";
+      } else {
+        print $fh "(vim -r! ", shell_quote($job->{filename}), " &) && kill -SIGTSTP \$!\n";
       }
       
       print $fh "\n";
@@ -130,17 +124,20 @@ sub record_session {
 # Quote shell arguments properly - security matters!
 sub shell_quote {
   my ($str) = @_;
-  $str =~ s/'/'\\''/g;  # Handle single quotes in path
+  $str =~ s/'/'"'"'/g;  # Handle single quotes in path with '"'"'
   return "'$str'";
 }
 
 # --- Main execution ---
 
 # Die if no session name
-my $session_name = get_session_name() or exit 1;
+my $session_name = get_session_name();
+
+# Get jobs output from stdin
+my $jobs_output = do { local $/; <STDIN> };
 
 # Record the session
-my $result = record_session($session_name);
+my $result = record_session($session_name, $jobs_output);
 
 # Let the human know what happened
 print "Session recorded to $result->{file} with $result->{jobs_count} vim jobs\n";
