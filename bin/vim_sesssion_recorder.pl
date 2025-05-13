@@ -29,11 +29,6 @@ sub get_session_name {
   return $session;
 }
 
-# Get current working directory
-sub get_shell_cwd {
-  return cwd();
-}
-
 # The real magic - parse jobs output and extract the vim jewels
 sub get_vim_jobs {
   my ($jobs_output) = @_;
@@ -58,15 +53,12 @@ sub get_vim_jobs {
       $pid = $2;
     }
     
-    my $vim_cwd = '';
-    if ($pid && -e "/proc/$pid/cwd") {
-      $vim_cwd = readlink("/proc/$pid/cwd");
-    }
+    my $vim_cwd = ($pid && -e "/proc/$pid/cwd") ? readlink("/proc/$pid/cwd") : cwd();
     
     push @vim_jobs, {
       job_id => $job_id,
       filename => $filename,
-      cwd => $vim_cwd || get_shell_cwd(), # fallback if we can't determine
+      cwd => $vim_cwd,
     };
   }
   
@@ -78,7 +70,7 @@ sub record_session {
   my ($session_name, $jobs_output) = @_;
   
   my $session_file = _mk_session_dir() . "/$session_name";
-  my $shell_cwd = get_shell_cwd();
+  my $shell_cwd = cwd();
   my @vim_jobs = get_vim_jobs($jobs_output);
   
   # Open file and start writing
