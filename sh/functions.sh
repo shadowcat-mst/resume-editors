@@ -36,55 +36,45 @@ function record_vim_session_hook() {
 # Add to your PS1 if you want automatic recording
 # PS1='...\$ $(record_vim_session_hook)'
 
-# Start a new shell with restored session
-function resume_vim_session() {
+# Function to output the session file path for a given session name
+function resume_vim_session_file() {
   local session_name="$1"
-  local replace_current="${2:-false}"
 
   if [ -z "$session_name" ]; then
-    echo "Available sessions:"
-    ls -1 ~/.resume/
+    echo "Available sessions:" >&2
+    ls -1 ~/.resume/ >&2
     return 1
   fi
 
   local session_file="$HOME/.resume/$session_name"
 
   if [ ! -f "$session_file" ]; then
-    echo "Session '$session_name' does not exist"
+    echo "Session '$session_name' does not exist" >&2
     return 1
+  fi
+
+  # Just output the session file path
+  echo "$session_file"
+}
+
+# Start a new shell with restored session
+function resume_vim_session_shell() {
+  local session_name="$1"
+
+  # Get the session file path
+  local session_file=$(resume_vim_session_file "$session_name")
+  local exit_code=$?
+
+  if [ $exit_code -ne 0 ]; then
+    # Error message already displayed by resume_vim_session_file
+    return $exit_code
   fi
 
   # Set session name for potential recording
   export RESUME_SESSION_NAME="$session_name"
 
-  if [ "$replace_current" = "true" ]; then
-    # Source the session file in the current shell
-    source "$session_file"
-  else
-    # Start a new shell with the session file as init file
-    bash --init-file <(echo "source ~/.bashrc; source '$session_file'")
-  fi
-}
-
-# Replace current shell with new shell running the session
-function exec_resume_vim_session() {
-  local session_name="$1"
-
-  if [ -z "$session_name" ]; then
-    echo "Available sessions:"
-    ls -1 ~/.resume/
-    return 1
-  fi
-
-  local session_file="$HOME/.resume/$session_name"
-
-  if [ ! -f "$session_file" ]; then
-    echo "Session '$session_name' does not exist"
-    return 1
-  fi
-
   # Replace current shell with new shell running the session
-  export RESUME_SESSION_NAME="$session_name"
+  echo "Resuming session: $session_name"
   exec bash --init-file <(echo "source ~/.bashrc; source '$session_file'")
 }
 
