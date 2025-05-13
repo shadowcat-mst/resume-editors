@@ -8,6 +8,7 @@ use warnings;
 use autodie;
 use File::Path qw(make_path);
 use POSIX qw(strftime);
+use Cwd qw(cwd);
 
 # Utterly evil but utterly practical - MSTROUT style!
 sub _mk_session_dir {
@@ -16,14 +17,10 @@ sub _mk_session_dir {
   return $dir;
 }
 
-# Return false but in a cool way
-sub _fail { return }
-
 # Make sure we have a session name or whine loudly about it
 sub get_session_name {
   my $session = $ENV{RESUME_SESSION_NAME}
-    or warn "ERROR: \$RESUME_SESSION_NAME environment variable not set\n"
-    and return _fail();
+    or die "ERROR: \$RESUME_SESSION_NAME environment variable not set\n";
     
   # Safety first - no directory traversal for you!
   die "Invalid session name: contains path separators"
@@ -32,19 +29,15 @@ sub get_session_name {
   return $session;
 }
 
-# Get current working directory with proper escaping
+# Get current working directory
 sub get_shell_cwd {
-  my $cwd = `pwd`;
-  chomp $cwd;
-  return $cwd;
+  return cwd();
 }
 
 # The real magic - parse jobs output and extract the vim jewels
 sub get_vim_jobs {
+  my ($jobs_output) = @_;
   my @vim_jobs;
-  
-  # Capture jobs output
-  my $jobs_output = `jobs -l`;
   
   # Process each line looking for stopped vim jobs
   for my $line (split /\n/, $jobs_output) {
